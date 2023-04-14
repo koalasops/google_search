@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Google検索</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css" integrity="sha512-SzlrxWUlpfuzQ+pcUCosxcglQRNAq/DZjVsC0lE40xsADsfeQoEypE+enwcOiGjk/bSuGGKHEyjSoQ1zVisanQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.svg') }}">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <style>
+      .loader {
+        position: relative;
+        width:  48px;
+        height: 48px;
+        background: #de3500;
+        transform: rotateX(65deg) rotate(45deg);
+        // remove bellows command for perspective change
+        //transform: perspective(200px) rotateX(65deg) rotate(45deg); 
+        color: #fff;
+        animation: layers1 1s linear infinite alternate;
+      }
+      .loader:after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.7);
+        animation: layerTr 1s linear infinite alternate;
+      }
+    
+      @keyframes layers1 {
+        0% { box-shadow: 0px 0px 0 0px  }
+       90% , 100% { box-shadow: 20px 20px 0 -4px  }
+      }
+      @keyframes layerTr {
+        0% { transform:  translate(0, 0) scale(1) }
+        100% {  transform: translate(-25px, -25px) scale(1) }
+      }
+          
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid bg-white p-0 min-vh-100">
+      <div class="d-none google_search_loader position-fixed top-0 left-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index: 10000; backdrop-filter: brightness(20%)">
+        <div class="d-flex m-auto flex-column">
+          <p class="loader"></p>
+          <p class="text-white fw-bold">検索中...</p>
+        </div>
+      </div>
+      <div class="py-5 mt-5 text-center">
+        <div class="google-search-input col-12 col-md-6 m-auto">
+          <div class="w-100 mt-6 p-6 font-weight-bolder">
+            <p class="" style="font-size: 4rem">
+              <i class="fa-brands fa-google text-danger"></i>
+            </p>
+            <p class="fs-4 fw-bold">検索キーワードを入力してください。</p>
+          </div>
+          <div class="p-2 md-p-5 m-auto">
+            <div class="w-100 flex-column flex-md-row d-flex align-items-center justify-content-center">
+              <div class="csv-upload text-center fs-2 px-2 mb-0">
+                <label for="csv"><i class="fa-solid fa-file-csv text-info"></i></label>
+                <input type="file" name="" id="csv" class="d-none" />
+              </div>
+              <div class="col-12 col-md-8 d-flex items-center justify-center input-field mx-3 px-4">
+                <input type="text" id="s" name="s" class="form-control px-3 py-2" />
+              </div>
+              <div class="btn-group col-12 col-md-4 mt-3 mt-md-0">
+                <button id="button" class="w-100 btn btn-success mx-4">検索</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 p-4 m-auto">
+          <ul id="results" class="list-unstyled text-start">
+          </ul>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script>
+    $('#button').click(function (e) {
+      let keyword = $('#s').val();
+      let my_api_key = 'AIzaSyADPhYEsAnbQ1INlKQXKeFeGGNHFzI3PGs';
+      let my_cse_id = '958297827ed374b25';
+      let custom_search_url = `https://www.googleapis.com/customsearch/v1?key=${my_api_key}&cx=${my_cse_id}&q=${keyword}`;
+      e.preventDefault()
+      if ($('#s').val() == '') {
+        alert('検索キーワードを入力してください。')
+      } else {
+        $.ajax({
+          method: 'get',
+          url: custom_search_url,
+          dataType: 'text',
+          
+          success: function (res) {
+            if(res) {
+              let data = JSON.parse(res);
+              let urlList = data['items'].map((item) => {
+                return { 'link': item.link };
+              })
+              if(urlList) {
+                $.ajax({
+                  method: "post",
+                  url: '/search',
+                  data: { urls: JSON.stringify(urlList) },
+                  dataType: 'json',
+                  beforeSend: function() {
+                    $(".google_search_loader").removeClass("d-none") ;
+                  },
+                  complete: function() {
+                    if(!$(".google_search_loader").hasClass("d-none")) {
+                      $(".google_search_loader").addClass("d-none") ;
+                    }
+                  },
+                  success: function(res_2) {
+                    console.log('ste_2', res_2)
+                    //let final = JSON.parse(res_2);
+                    res_2.forEach((items) => {
+                      $("#results").append(`
+                        <li class="border-bottom px-3 py-1">
+                          <div class="url fs-6">
+                            <p class="fs-6 fw-bold">
+                              <a href="${items.url}" target="_blank" class="text-dark" style="text-decoration: none;">
+                                <p>${items.url}</p>
+                              </a>
+                            </p>
+                            <div class="detail d-flex align-items-center">
+                              <span class="px-3">インデックス数 : ${items.index}</span>
+                              <span class="px-3">ワード数 : ${items.len}文字</span>
+                            </div>
+                          </div>
+                        </li>
+                      `)
+                    })
+                  }
+                })
+              }
+              //urlList.forEach((item) => {
+              //  alert(item.link)
+              //  $.ajax({
+              //    method: 'post',
+               //   url: '/search',
+                 // data: {'urls': item.link},
+                 // dataType: 'text',
+                  //success: function (res) {
+                   // console.log(res)
+                  //},
+                  //error: function(error) {
+                    //console.log(error);
+                 // }
+                //})
+              //})
+            }
+          },
+          error: function(error) {
+            console.log(error);
+          }
+        })
+      }
+    })
+  </script>
+</html>
